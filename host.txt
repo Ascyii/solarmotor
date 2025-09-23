@@ -1,0 +1,3 @@
+Local addresses
+inet 169.254.217.237/16
+inet6 fe80::d89b:cecc:9c55:e1c3/64

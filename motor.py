@@ -2,9 +2,6 @@ import RPi.GPIO as GPIO
 import time
 import os
 
-# ----------------------------
-# GPIO setup
-# ----------------------------
 GPIO.setmode(GPIO.BCM)
 
 # Servo pins
@@ -14,7 +11,7 @@ SERVO2_PIN = 18
 # Buttons
 BUTTON1_FWD = 5   # Motor1 forward
 BUTTON1_BWD = 6   # Motor1 backward
-BUTTON2_FWD = 17   # Motor2 forward
+BUTTON2_FWD = 17  # Motor2 forward
 BUTTON2_BWD = 27  # Motor2 backward
 SHUTDOWN_BTN = 26 # Shutdown button
 

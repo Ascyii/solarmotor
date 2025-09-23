@@ -1,0 +1,2 @@
+https://pinout.xyz/ Full pinout for the rpi3
+https://components101.com/sites/default/files/component_datasheet/SG90%20Servo%20Motor%20Datasheet.pdf Datasheet for the servomotor used

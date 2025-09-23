@@ -3,6 +3,9 @@ import RPi.GPIO as GPIO
 import time
 import os
 
+# Solar module for simulation of world
+import solar
+
 # Constants
 SERVO1_PIN = 18
 SERVO2_PIN = 19
@@ -13,9 +16,9 @@ BUTTON2_FWD = 17
 BUTTON2_BWD = 27
 SHUTDOWN_BTN = 26
 
-MIN_PULSE = 1000 # In ms
-MAX_PULSE = 2000
-INIT_PULSE = 1500
+MIN_PULSE = 500 # In ms
+MAX_PULSE = 2500
+INIT_PULSE = 1000
 STEP = 10
 LOOP_DELAY = 0.01 # In seconds
 
@@ -41,6 +44,24 @@ def move_servo(current, target, step=STEP):
     elif current > target:
         current = max(current - step, target)
     return current
+
+# Testing embedding the mirrors in the world
+world = solar.World(tilt_deg=15)  # The world is tilted 15 degrees around y-axis
+
+source = solar.Source(world, pos=(100, 100, 100))
+target = solar.Target(world, pos=(50, 50, 0))
+
+# Create mirrors in a 9x9 grid
+for x in range(3):
+    for y in range(3):
+        mirror = solar.Mirror(world, cluster_x=x, cluster_y=y)
+        world.add_mirror(mirror)
+
+world.update_mirrors_from_source_target(source, target)
+
+for i, mirror in enumerate(world.mirrors):
+    pitch, yaw = mirror.get_angles()
+    print(f"Mirror {i} ({mirror.cluster_x}, {mirror.cluster_y}) angles -> pitch: {pitch:.2f}°, yaw: {yaw:.2f}°")
 
 # Main
 try:

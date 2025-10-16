@@ -1,100 +1,49 @@
-import pigpio
-import RPi.GPIO as GPIO
-import time
-import os
+"""Helpers for building moving mirrors."""
 
-# Solar module for simulation of world
-import solar
+class Motor:
+    """Model a type of servo motor."""
 
-# Constants
-SERVO1_PIN = 18
-SERVO2_PIN = 19
+    # Default vaules for every motor
+    MAX_PULSE = 2500
+    MIN_PULSE = 500
+    COVERAGE = 180 # Total degree of freedom in degrees
+    AREA = MAX_PULSE - MIN_PULSE
+    OFFSET = 2 # In degrees a constant to be added
+    SCALE = 1 # Scaling
 
-BUTTON1_FWD = 5
-BUTTON1_BWD = 6
-BUTTON2_FWD = 17
-BUTTON2_BWD = 27
-SHUTDOWN_BTN = 26
+    # Used for ids
+    count = 0
 
-MIN_PULSE = 500 # In ms
-MAX_PULSE = 2500
-INIT_PULSE = 1000
-STEP = 10
-LOOP_DELAY = 0.01 # In seconds
+    def __init__(self, pi, pin, angle=0):
+        self.id = Motor.count; Motor.count += 1
+        self.pi = pi # Local pi instance
 
-# Setup
-GPIO.setmode(GPIO.BCM)
-for btn in [BUTTON1_FWD, BUTTON1_BWD, BUTTON2_FWD, BUTTON2_BWD, SHUTDOWN_BTN]:
-    GPIO.setup(btn, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        self.pin = pin
+        self.angle = angle
+        self.offset = Motor.OFFSET # Fine grained controls over every motor
+        self.scale = Motor.SCALE
 
-pi = pigpio.pi()
-if not pi.connected:
-    print("Cannot connect to pigpio daemon!")
-    exit()
+        # Initialization
+        self.set()
 
-pulse1 = INIT_PULSE
-pulse2 = INIT_PULSE
-pi.set_servo_pulsewidth(SERVO1_PIN, pulse1)
-pi.set_servo_pulsewidth(SERVO2_PIN, pulse2)
+    def angle_to_pulse(self, angle):
+        return min(max(Motor.MIN_PULSE, (Motor.MIN_PULSE + Motor.AREA * angle/Motor.COVERAGE + self.offset) * self.scale), Motor.MAX_PULSE)
 
-# Helpers
-def move_servo(current, target, step=STEP):
-    if current < target:
-        current = min(current + step, target)
-    elif current > target:
-        current = max(current - step, target)
-    return current
+    # Update the motor position on hardware
+    def set(self):
+        self.pi.set_servo_pulsewidth(self.pin, self.angle_to_pulse(self.angle))
 
-# Testing embedding the mirrors in the world
-world = solar.World(tilt_deg=15)  # The world is tilted 15 degrees around y-axis
+    def set_angle(self, angle):
+        self.angle = angle
+        self.set()
 
-source = solar.Source(world, pos=(100, 100, 100))
-target = solar.Target(world, pos=(50, 50, 0))
+    def __str__(self):
+        return f"Motor {self.id} is set at {self.angle} degrees."
 
-# Create mirrors in a 9x9 grid
-for x in range(3):
-    for y in range(3):
-        mirror = solar.Mirror(world, cluster_x=x, cluster_y=y)
-        world.add_mirror(mirror)
+    def __del__(self):
+        self.pi.set_servo_pulsewidth(self.pin, 0)
 
-world.update_mirrors_from_source_target(source, target)
-
-for i, mirror in enumerate(world.mirrors):
-    pitch, yaw = mirror.get_angles()
-    print(f"Mirror {i} ({mirror.cluster_x}, {mirror.cluster_y}) angles -> pitch: {pitch:.2f}°, yaw: {yaw:.2f}°")
-
-# Main
-try:
-    while True:
-        # Shutdown
-        if GPIO.input(SHUTDOWN_BTN) == GPIO.HIGH:
-            os.system("sudo shutdown now")
-
-        # Motor 1
-        target1 = pulse1
-        if GPIO.input(BUTTON1_FWD):
-            target1 = min(MAX_PULSE, pulse1 + STEP)
-        elif GPIO.input(BUTTON1_BWD):
-            target1 = max(MIN_PULSE, pulse1 - STEP)
-        pulse1 = move_servo(pulse1, target1)
-        pi.set_servo_pulsewidth(SERVO1_PIN, pulse1)
-
-        # Motor 2
-        target2 = pulse2
-        if GPIO.input(BUTTON2_FWD):
-            target2 = min(MAX_PULSE, pulse2 + STEP)
-        elif GPIO.input(BUTTON2_BWD):
-            target2 = max(MIN_PULSE, pulse2 - STEP)
-        pulse2 = move_servo(pulse2, target2)
-        pi.set_servo_pulsewidth(SERVO2_PIN, pulse2)
-
-        time.sleep(LOOP_DELAY)
-
-except KeyboardInterrupt:
-    pass
-
-finally:
-    pi.set_servo_pulsewidth(SERVO1_PIN, 0)
-    pi.set_servo_pulsewidth(SERVO2_PIN, 0)
-    pi.stop()
-    GPIO.cleanup()
+    def inc(self, inc):
+        self.angle += inc
+        self.angle = min(max(self.angle, 0), Motor.COVERAGE) # Clip
+        self.set()

@@ -25,17 +25,17 @@ class Source(MovingEntity):
         self.pos = pos
 
 class Mirror:
-    def __init__(self, world, cluster_x=0, cluster_y=0):
+    def __init__(self, world, pitch_pin, yaw_pin, cluster_x=0, cluster_y=0):
         self.world = world
         self.cluster_x = cluster_x
         self.cluster_y = cluster_y
-        self.angle_x = 0.0
-        self.angle_y = 0.0
+
+        # Store the motors
+        self.yaw = motor.Motor(self.world.pi, yaw_pin)
+        self.pitch = motor.Motor(self.world.pi, pitch_pin)
 
         # Position in un-tilted coordinate system
-        self.pos = (cluster_x * self.world.grid_size,
-                    cluster_y * self.world.grid_size,
-                    0.0)
+        self.pos = (cluster_x * self.world.grid_size, cluster_y * self.world.grid_size, 0.0)
 
     def get_pos_rotated(self):
         return self.world.rotate_point_y(self.pos)
@@ -74,14 +74,16 @@ class Mirror:
         mirror_normal = normalize(mirror_normal)
 
         # Update the angles based on the normals in rotated positions
-        self.angle_y = math.degrees(math.atan2(mirror_normal[0], mirror_normal[2]))
-        self.angle_x = math.degrees(math.atan2(mirror_normal[1], mirror_normal[2]))
+        self.yaw.set_angle(math.degrees(math.atan2(mirror_normal[0], mirror_normal[2])))
+        self.pitch.set_angle(math.degrees(math.atan2(mirror_normal[1], mirror_normal[2])))
 
     def get_angles(self):
-        return self.angle_x, self.angle_y
+        return self.yaw.angle, self.pitch.angle
 
 class World:
-    def __init__(self, tilt_deg=0.0):
+    def __init__(self, pi, tilt_deg=0.0):
+        self.pi = pi
+
         self.grid_size = 10  # In cm
         self.tilt_deg = tilt_deg  # Tilt of the grid system around y-axis
         self.mirrors = []
